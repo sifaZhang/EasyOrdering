@@ -96,6 +96,7 @@ app.get('/', function (req, res) {
         }
 
         res.render('home', {
+            success: true,
             topNItemsPerType: results[0],
             topN: topN
 
@@ -1453,5 +1454,16 @@ app.post('/auth', function(req, res) {
 	}
 });
 
-app.listen(3000); 
-console.log('Node app is running on port 3000'); 
+
+
+if (require.main === module) {
+  // 只有直接运行 node app.js 时才监听端口
+  app.listen(3000, () => {
+    console.log('Server started');
+  });
+}
+
+
+
+module.exports = app; // 导出 app 实例
+module.exports.toLocalDatetimeString = toLocalDatetimeString;
