@@ -168,14 +168,14 @@
 
                                 ${String(item.itemAvailable) === String(1) ? 
                                     `<form action="/listMenuItem" method="POST"
-                                        onsubmit="return confirm(\'Are you sure you want to unlist this itme?\');">
+                                        onsubmit="return confirm(\'Are you sure you want to unlist this item?\');">
                                         <input type="hidden" name="id" value="${item.id}">
                                         <input type="hidden" name="foodtype" value="${item.foodtype}">
                                         <input type="hidden" name="available" value="${item.itemAvailable}">
                                         <button class="btn btn-success btn-sm" style="margin-bottom: 5px">Unlist</button>
                                     </form>` : 
                                     `<form action="/listMenuItem" method="POST"
-                                        onsubmit="return confirm(\'Are you sure you want to list this itme?\');">
+                                        onsubmit="return confirm(\'Are you sure you want to list this item?\');">
                                         <input type="hidden" name="id" value="${item.id}">
                                         <input type="hidden" name="foodtype" value="${item.foodtype}">
                                         <input type="hidden" name="available" value="${item.itemAvailable}">
@@ -184,7 +184,7 @@
                                 } 
                                 
                                 <form action="/deleteMenuItem" method="POST"
-                                    onsubmit="return confirm('Are you sure you want to delete this itme?');">
+                                    onsubmit="return confirm('Are you sure you want to delete this item?');">
                                     <input type="hidden" name="id" value="${item.id}">
                                     <input type="hidden" name="foodtype" value="${item.foodtype}">
                                     <button class="btn btn-sm btn-danger">Delete</button>

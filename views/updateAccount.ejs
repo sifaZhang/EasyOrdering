@@ -16,7 +16,8 @@
             <form action="/updateAccountInfo" method="POST">
                 <div class="d-flex userinfo-div">
                     <label class="form-label me-3">User name</label>
-                    <input name="username" type="text" class="form-control me-3" value="<%= username %>" required />
+                    <input name="usernameShow" type="text" class="form-control me-3" value="<%= username %>" disabled />
+                    <input name="username" type="hidden" value="<%= username %>"/>
                     <label id="err_username" class="form-label-err text-danger"></label>
                 </div>
         

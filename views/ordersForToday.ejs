@@ -146,6 +146,10 @@
                                                 <input name="orderId" type="hidden" value="<%= order.id %>">
                                                 <button class="btn btn-primary">Receive</button>
                                             </form>
+                                            <form action="/printNew" method="POST">
+                                                <input name="orderId" type="hidden" value="<%= order.id %>">
+                                            <button class="btn btn-primary">Print New</button>
+                                        </form>
                                         <% } %>
     
                                         <% if (order.status === s_ready) { %>
@@ -164,6 +168,13 @@
                                         <form action="/deleteOrder" method="POST" onsubmit="return confirm('Are you sure you want to delete this order?');">
                                             <input name="orderId" type="hidden" value="<%= order.id %>">
                                             <button class="btn btn-primary">Delete</button>
+                                        </form>
+                                        <% } %>
+
+                                        <% if (order.status === s_completed) { %>
+                                        <form action="/printOrder" method="POST">
+                                            <input name="orderId" type="hidden" value="<%= order.id %>">
+                                            <button class="btn btn-primary">Print Receipt</button>
                                         </form>
                                         <% } %>
                                     </div>

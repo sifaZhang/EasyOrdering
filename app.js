@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 //This line uses the require function to include the express module.
 var express = require('express');
 //This line creates an instance called app in the express application.
@@ -89,7 +91,7 @@ function toLocalDatetimeString(utcInput) {
 }
 
 app.get('/', function (req, res) {
-    const topN = 3;
+    const topN = 5;
     conn.query('CALL SelectTopItemsByType(?)', [topN], function (error, results) {
         if (error) {
             return res.status(500).send('Database error (SelectTopItemsByType)');
@@ -192,8 +194,8 @@ app.get('/api/pendingOrderCount', function (req, res) {
 
 app.get('/ordersForToday', function (req, res) {
     const now = new Date();
-    const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const startTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate())).toISOString().slice(0, 19).replace('T', ' ');
+    const endTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)).toISOString().slice(0, 19).replace('T', ' ');
     conn.query('SELECT * FROM orders_info where ordertime >= ? and ordertime <= ? order by (status = 12) DESC, status, tablenumber, id ASC', 
         [startTime, endTime], function (error, results) {
             if (error) {
@@ -1388,8 +1390,8 @@ app.post('/reset', function(req, res) {
                 const transporter = nodemailer.createTransport({
                     service: 'gmail',
                     auth: {
-                        user: GMAIL_USER,
-                        pass: GMAIL_APP_PASSWORD
+                        user: process.env.GMAIL_USER,
+                        pass: process.env.GMAIL_APP_PASSWORD
                     }
                 });
 
@@ -1397,7 +1399,7 @@ app.post('/reset', function(req, res) {
                     'Password: ' + results[0].password + '\n' +
                     'Please change your password after logging in.';
                 const mailOptions = {
-                    from: GMAIL_USER,
+                    from: process.env.GMAIL_USER,
                     to: email,
                     subject: 'Reset Password',
                     text: emailcontent

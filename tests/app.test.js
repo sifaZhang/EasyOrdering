@@ -40,7 +40,7 @@ describe('GET /', () => {
 
         expect(conn.query).toHaveBeenCalledWith(
             'CALL SelectTopItemsByType(?)',
-            [3],
+            [5],
             expect.any(Function)
         );
         // Since EJS rendering returns HTML, check for some expected content
