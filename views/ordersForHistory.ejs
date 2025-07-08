@@ -81,8 +81,8 @@
                                             <th>Discount</th>
                                             <th>CurPrice</th>
                                             <th>Number</th>
+                                            <th>Total</th>
                                             <th>Status</th>
-                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -108,6 +108,9 @@
                                                 </td>
                                                 <td style="text-align: center;">
                                                     <%= item.itemnumber %>
+                                                </td>
+                                                <td>
+                                                    $<%= parseFloat(item.itemnumber * item.curprice).toFixed(2) %>
                                                 </td>
                                                 <td>
                                                     <%= item.statusname %>
