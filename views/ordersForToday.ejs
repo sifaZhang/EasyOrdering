@@ -16,7 +16,7 @@
         <% } %>
 
         <% orders.forEach(function(order) { %>
-            <div class="container" style="margin-top: 30px;">
+            <div class="container" style="margin-top: 30px;" id="print-area-<%= order.id %>" >
                 <table class="table table-bordered w-100">
                     <tbody>
                         <!-- 第一层：订单基本信息 -->
@@ -77,8 +77,9 @@
                                                 <th>Discount</th>
                                                 <th>CurPrice</th>
                                                 <th>Number</th>
-                                                <th>Status</th>
-                                                <th>Action</th>
+                                                <th>Total</th>
+                                                <th class="no-print">Status</th>
+                                                <th class="no-print">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -100,15 +101,18 @@
                                                         <% } %>
                                                     </td>
                                                     <td style="text-align: center;">
-                                                        <%= parseFloat(item.curprice).toFixed(2) %> %>
+                                                        $<%= parseFloat(item.curprice).toFixed(2) %> %>
                                                     </td>
                                                     <td style="text-align: center;">
                                                         <%= item.itemnumber %>
                                                     </td>
                                                     <td>
+                                                        $<%= parseFloat(item.itemnumber * item.curprice).toFixed(2) %>
+                                                    </td>
+                                                    <td class="no-print">
                                                         <%= item.statusname %>
                                                     </td>
-                                                    <td style="text-align: center;">
+                                                    <td class="no-print" style="text-align: center;">
                                                         <div style="display: flex; justify-content: space-evenly;">
                                                             <% if (item.status===s_preparing) { %>
                                                                 <form action="/ReadyItem" method="POST">
@@ -172,10 +176,8 @@
                                         <% } %>
 
                                         <% if (order.status === s_completed) { %>
-                                        <form action="/printOrder" method="POST">
-                                            <input name="orderId" type="hidden" value="<%= order.id %>">
-                                            <button class="btn btn-primary">Print Receipt</button>
-                                        </form>
+                                            <button class="btn btn-primary no-print"
+                                                onclick="printReceipt('<%= order.id %>')">Print Receipt</button>
                                         <% } %>
                                     </div>
                                 </td>
@@ -188,7 +190,27 @@
 
     <%- include('partials/footer.ejs') %>
 
+    <script>
+        function printReceipt(index) {
 
+            const originalContents = document.body.innerHTML;
+            
+            // 获取当前要打印的区域
+            const printContents = document.getElementById(`print-area-${index}`).innerHTML;
+            
+            // 替换 body 内容为要打印的内容
+            document.body.innerHTML = printContents;
+
+            // 打印
+            window.print();
+
+            // 打印完后还原页面
+            document.body.innerHTML = originalContents;
+
+            // 可选：刷新页面以恢复事件绑定
+            location.reload();
+        }
+    </script>
 
 </body>
 </html>

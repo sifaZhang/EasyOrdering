@@ -314,3 +314,10 @@ html,body {
   font-size: 1.8rem;
   letter-spacing: 1px;
 }
+
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
