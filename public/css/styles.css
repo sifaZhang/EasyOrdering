@@ -320,4 +320,8 @@ html,body {
   .no-print {
     display: none !important;
   }
+
+  body.print-mode-new .no-print-only-new {
+    display: none !important;
+  }
 }

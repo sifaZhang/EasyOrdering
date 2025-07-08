@@ -33,7 +33,7 @@
                                 </span>
                             </td>
                             </tr>
-                            <tr>
+                            <tr class="no-print-only-new">
                                 <td style="width: 10%;"><label class="fw-bold">Status:</label></td>
                                 <td style="color:brown; width: 20%;">
                                     <%= order.statusname %>
@@ -56,13 +56,13 @@
                                 <td style="width: 20%;">
                                     <%= order.ordertime %>
                                 </td>
-                                <td style="width: 10%;"><label class="fw-bold">FinishTime:</label></td>
-                                <% if (order.finishtime !=='0000-00-00 00:00:00' ) { %>
-                                    <td style="width: 20%;">
+                                <td style="width: 10%;" class="no-print-only-new"><label class="fw-bold">FinishTime:</label></td>
+                                <% if (order.finishtime !=='Invalid Date' ) { %>
+                                    <td style="width: 20%;" class="no-print-only-new">
                                     <%= order.finishtime %>
                                     </td>
                                 <% } else { %>
-                                        <td style="width: 20%;"></td>
+                                        <td style="width: 20%;" class="no-print-only-new"></td>
                                 <% } %>
                             </tr>
     
@@ -84,7 +84,11 @@
                                         </thead>
                                         <tbody>
                                             <% items.forEach(function(item) { if (item.orderid===order.id) { %>
-                                                <tr>
+                                                <% if (item.status > s_preparing) { %>
+                                                    <tr class="no-print-only-new">
+                                                <% } else { %>
+                                                    <tr>
+                                                <% } %>
                                                     <td>
                                                         <%= item.itemname %>
                                                     </td>
@@ -148,30 +152,29 @@
                                         <% if (order.status === s_confirmed) { %>
                                             <form action="/receiveOrder" method="POST">
                                                 <input name="orderId" type="hidden" value="<%= order.id %>">
-                                                <button class="btn btn-primary">Receive</button>
+                                                <button class="btn btn-primary no-print">Receive</button>
                                             </form>
-                                            <form action="/printNew" method="POST">
-                                                <input name="orderId" type="hidden" value="<%= order.id %>">
-                                            <button class="btn btn-primary">Print New</button>
-                                        </form>
-                                        <% } %>
-    
-                                        <% if (order.status === s_ready) { %>
-                                        <form action="/finishOrder" method="POST">
-                                            <input name="orderId" type="hidden" value="<%= order.id %>">
-                                            <button class="btn btn-primary">Finish</button>
-                                        </form>
                                         <% } %>
     
                                         <% if (order.status < s_ready) { %>
+                                        <button class="btn btn-primary no-print" 
+                                            onclick="printNew('<%= order.id %>')">Print New</button>
+
                                         <form action="/cancelOrder" method="POST" onsubmit="return confirm('Are you sure you want to cancel this order?');">
                                             <input name="orderId" type="hidden" value="<%= order.id %>">
-                                            <button class="btn btn-primary">Cancel</button>
+                                            <button class="btn btn-primary no-print">Cancel</button>
                                         </form>
                                         
                                         <form action="/deleteOrder" method="POST" onsubmit="return confirm('Are you sure you want to delete this order?');">
                                             <input name="orderId" type="hidden" value="<%= order.id %>">
-                                            <button class="btn btn-primary">Delete</button>
+                                            <button class="btn btn-primary no-print">Delete</button>
+                                        </form>
+                                        <% } %>
+
+                                        <% if (order.status === s_ready) { %>
+                                        <form action="/finishOrder" method="POST">
+                                            <input name="orderId" type="hidden" value="<%= order.id %>">
+                                            <button class="btn btn-primary">Finish</button>
                                         </form>
                                         <% } %>
 
@@ -192,6 +195,28 @@
 
     <script>
         function printReceipt(index) {
+
+            const originalContents = document.body.innerHTML;
+            
+            // 获取当前要打印的区域
+            const printContents = document.getElementById(`print-area-${index}`).innerHTML;
+            
+            // 替换 body 内容为要打印的内容
+            document.body.innerHTML = printContents;
+
+            // 打印
+            window.print();
+
+            // 打印完后还原页面
+            document.body.innerHTML = originalContents;
+
+            // 可选：刷新页面以恢复事件绑定
+            location.reload();
+        }
+
+        function printNew(index) {
+
+            document.body.classList.add('print-mode-new');
 
             const originalContents = document.body.innerHTML;
             
