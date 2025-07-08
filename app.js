@@ -740,14 +740,16 @@ app.post('/addItems', function (req, res) {
     console.log('addItems:', orderTime);
 
     //if tableNumber is not null, this order is made by recepitonist
-    if (!isNaN(tableNumber)) {
-        res.locals.s_tableNumber = req.session.tableNumber = tableNumber;
+    if (isNaN(tableNumber)) {
+        res.render('Please input table number!');
     }
 
-    if (res.locals.s_orderId) {
+    if (res.locals.s_orderId && res.locals.s_tableNumber === tableNumber) {
         addItem2Databse(req, res);
     }
     else {
+        res.locals.s_tableNumber = req.session.tableNumber = tableNumber;
+
         //create a new order
         const sql = 'INSERT INTO orders (creator, ordertime, tablenumber, status) VALUES (?, ?, ?, ?)';
         conn.query(sql, [res.locals.s_username, orderTime, res.locals.s_tableNumber, res.locals.s_pending], (err, result) => {

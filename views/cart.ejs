@@ -59,7 +59,7 @@
                             <form action="/deleteItem" method="POST" class="delete-form">
                                 <td style="width: 15%; text-align: center;">
                                     <input name="itemId" type="hidden" value="<%= item.id %>">
-                                    <% if (item.status < s_ready ) { %>
+                                    <% if (item.status === s_pending ) { %>
                                         <button class="btn btn-sm btn-danger">Delete</button>
                                     <% } %>
                                 </td>
