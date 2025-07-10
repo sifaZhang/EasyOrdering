@@ -263,7 +263,7 @@ app.get('/ordersForToday', function (req, res) {
     const now = new Date();
     const startTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate())).toISOString().slice(0, 19).replace('T', ' ');
     const endTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)).toISOString().slice(0, 19).replace('T', ' ');
-    
+
     conn.query('SELECT * FROM orders_info where ordertime >= ? and ordertime <= ? order by (status = 12) DESC, status, tablenumber, id ASC', 
         [startTime, endTime], function (error, results) {
             if (error) {
@@ -672,6 +672,77 @@ function addItem2Databse(req, res) {
         });
     });
 }
+
+app.post('/cancelReserve', function (req, res) {
+    const date = req.body.date;
+    const timeslot = req.body.time;
+    const tablenumber = parseInt(req.body.table);
+
+    if (isNaN(tablenumber)) {
+        return res.status(500).json({ success: false, message: 'Invalid table number' });
+    }
+
+    const selectSql = 'SELECT * FROM reservations WHERE date = ? AND timeslot = ? AND tablenumber = ?';
+    conn.query(selectSql, [date, timeslot, tablenumber], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error (select)' });
+
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'No reservation found' });
+        }
+
+        const deletedRecord = rows[0]; // 保存即将删除的记录
+
+        const sql = 'DELETE FROM reservations WHERE date = ? AND timeslot = ? AND tablenumber = ?';
+        conn.query(sql, [date, timeslot, tablenumber], (err, result) => {
+            if (err) {
+                console.error('Database delete error:', err);
+                return res.status(500).json({ success: false, message: 'Failed to DELETE database.' });
+            } else {
+                //send an email to the customer
+                const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        user: process.env.GMAIL_USER,
+                        pass: process.env.GMAIL_APP_PASSWORD
+                    }
+                });
+
+                let emailcontent = 'Dear ' + deletedRecord.customername + ',\n\n' +
+                    'Your reservation on ' + date + ' at ' + timeslot + ' for Table Number: ' + tablenumber +
+                    ' has been cancelled.\n' +
+                    'Thank you for choosing EasyOrdering!\n\n' +
+                    'Best regards,\n' +
+                    'EasyOrdering Team\n';
+
+                const mailOptions = {
+                    from: process.env.GMAIL_USER,
+                    to: deletedRecord.email,
+                    subject: 'Reservation Cancelled at EasyOrdering',
+                    text: emailcontent
+                };
+
+                transporter.sendMail(mailOptions, (error, info) => {
+                    console.log('Sending email to: ' + deletedRecord.email);
+
+                    if (error) {
+                        console.error(error);
+                        res.status(500).send('Send failed: ' + error.message);
+                    } else {
+                        console.log('Email sent: ' + info.response);
+                        // Redirect to the reservation page with query parameters
+                        const query = new URLSearchParams({
+                            date: date,
+                            customerName: '',
+                            phone: '',
+                            email: ''
+                        }).toString();
+                        res.redirect('/reserveBydate?' + query);
+                    }
+                });
+            }
+        });
+    });
+ });
 
 app.post('/reserve', function (req, res) {
     const email = req.body.email;
