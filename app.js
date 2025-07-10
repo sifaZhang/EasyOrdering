@@ -101,9 +101,76 @@ app.get('/', function (req, res) {
             success: true,
             topNItemsPerType: results[0],
             topN: topN
-
         });
     });
+});
+
+app.get('/reserveBydate', function (req, res) {
+    const searchDate = req.query.date;
+    const customerName = req.query.customerName || '';
+    const email = req.query.email || '';
+    const phone = req.query.phone || '';
+
+    const timeSlots = ['11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00',
+        '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+        '18:00', '18:30', '19:00', '19:30'];
+
+    conn.query('SELECT tablenumber FROM qrcode order by tablenumber ASC',
+        [], function (error, results) {
+            if (error) {
+                return res.status(500).send('Database error (qrcode)', error);
+            }
+
+            let tables = [];
+            if (results.length > 0) {
+                results.forEach(element => {
+                    tables.push(element.tablenumber);
+                });
+            }
+
+            conn.query('SELECT * FROM reservations where date = ?',
+                [searchDate], function (error2, results2) {
+                    if (error2) {
+                        return res.status(500).send('Database error (reservation)', error2);
+                    }
+
+                    let booked = {};
+                    if (results2.length > 0) {
+                        results2.forEach(element => {
+                            if (!booked[element.timeslot]) {
+                                booked[element.timeslot] = [];
+                            }
+                            
+                            booked[element.timeslot].push(element.tablenumber);
+                        });
+                    }
+
+                    res.render('reservation', {
+                        timeSlots: timeSlots,
+                        tables: tables,
+                        booked: booked,
+                        date: searchDate,
+                        customerName: req.query.customerName,
+                        email: req.query.email,
+                        phone: req.query.phone
+                    });
+                });
+        });
+});
+
+app.get('/reservation', function (req, res) {
+    const now = new Date();
+    let searchDate = now.toLocaleDateString('en-CA');
+
+    res.render('reservation', {
+                        timeSlots: [],
+                        tables: [],
+                        booked: {},
+                        date: searchDate,
+                        customerName: '',
+                        email: '',
+                        phone: ''
+                    });
 });
 
 app.get('/login', function (req, res) {
@@ -196,6 +263,7 @@ app.get('/ordersForToday', function (req, res) {
     const now = new Date();
     const startTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate())).toISOString().slice(0, 19).replace('T', ' ');
     const endTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)).toISOString().slice(0, 19).replace('T', ' ');
+    
     conn.query('SELECT * FROM orders_info where ordertime >= ? and ordertime <= ? order by (status = 12) DESC, status, tablenumber, id ASC', 
         [startTime, endTime], function (error, results) {
             if (error) {
@@ -604,6 +672,76 @@ function addItem2Databse(req, res) {
         });
     });
 }
+
+app.post('/reserve', function (req, res) {
+    const email = req.body.email;
+    const phone = req.body.phone;
+    const customerName = req.body.name;
+    const date = req.body.date;
+    const timeslot = req.body.time;     
+    const tablenumber = parseInt(req.body.table);
+
+    if (isNaN(tablenumber)) {
+        return res.status(500).json({success: false, message: 'Invalid table number'});
+    }
+
+    const sql = 'INSERT INTO reservations (email, phone, customername, date, timeslot, tablenumber) VALUES (?, ?, ?, ?, ?, ?)';
+    conn.query(sql, [email, phone, customerName, date, timeslot, tablenumber], (err, result) => {
+        if (err) {
+            console.error('Database update error:', err);
+            return res.status(500).json({ success: false, message: 'Failed to INSERT database.' });
+        } else {
+
+            //send an email to the customer
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: process.env.GMAIL_USER,
+                    pass: process.env.GMAIL_APP_PASSWORD
+                }
+            });
+
+            let emailcontent = 'Dear ' + customerName + ',\n\n' +
+                'Date: ' + date + '\n' +
+                'Timeslot: ' + timeslot + '\n' +
+                'You have booked 30 mintues for ' +
+                'Table Number: ' + tablenumber + '.\n' +
+                'Please contact us before the timeslot if you change your plan.\n' +
+                'Thank you for choosing EasyOrdering!\n\n' +
+                'Best regards,\n' +
+                'EasyOrdering Team\n';
+
+            const mailOptions = {
+                from: process.env.GMAIL_USER,
+                to: email,
+                subject: 'Your reservation at EasyOrdering',
+                text: emailcontent
+            };
+
+            transporter.sendMail(mailOptions, (error, info) => {
+                console.log('Sending email to: ' + email);
+                //res.send('send successfully! Please check your email for further instructions.1');
+
+                if (error) {
+                    console.error(error);
+                    res.status(500).send('Send failed: ' + error.message);
+                } else {
+                    console.log('Email sent: ' + info.response);
+                    res.send('send successfully! Please check your email for further instructions.');
+                }
+            });
+
+            // Redirect to the reservation page with query parameters
+            const query = new URLSearchParams({
+                date: date,
+                customerName: customerName,
+                phone: phone,
+                email: email
+            }).toString();
+            res.redirect('/reserveBydate?' + query);
+        }
+    });
+});
 
 app.post('/pay', function (req, res) {
     const orderId = res.locals.s_orderId;

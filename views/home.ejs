@@ -10,7 +10,7 @@
 
     <div class="main-content">
         <div class="container-fluid">
-            <h1 class="h1-top">Top <%= topN %> ordered Items</h1>
+            <h3 class="h1-top">Top <%= topN %> ordered Items</h3>
         
             <% let currentType=null; let index = 1;%>
             <% topNItemsPerType.forEach(function(item) { %>
@@ -21,9 +21,9 @@
                     currentType = item.foodtype; index = 1; %>
         
                     <!-- 类型标题 -->
-                    <h3 class="text-left" style="margin-left: 20px; margin-top: 40px; margin-bottom: 5px;">
+                    <h4 class="text-left" style="margin-left: 20px; margin-top: 20px; margin-bottom: 5px;">
                         <%= item.typename %>
-                    </h3>
+                    </h4>
         
                     <!-- 开始新的一组 d-flex -->
                     <div class="d-flex justify-content-center rounded border" style="padding: 10px; gap: 3%;">

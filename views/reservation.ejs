@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('partials/header.ejs') %>
+        <title>Reservation</title>
+</head>
+
+<body>
+    <%- include('partials/navbarSelection.ejs') %>
+
+    <div class="main-content">
+        <div>
+            <h3 class="mb-4 text-center" style="margin-top: 20px;">Table Reservation</h3>
+        </div>
+
+        <!-- 日期选择器 -->
+        <form method="GET" action="/reserveBydate" class="mb-3">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+                <label for="date" class="form-label">Select Date:</label>
+                <input type="date" name="date" id="date" value="<%= date %>" class="form-control" style="width: fit-content;" required>
+                <button class="btn btn-primary">Check Availability</button>
+            </div>
+        </form>
+
+        <% if( timeSlots.length > 0 ) { %>
+        <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+            <label class="form-label">Name:</label>
+            <input type="text" name="name" id="name" value="<%= customerName %>" class="form-control" style="width: fit-content;" required>
+            <label class="form-label">Phone:</label>
+            <input type="text" name="phone" id="phone" value="<%= phone %>" class="form-control" style="width: fit-content;" required>
+            <label class="form-label">Email:</label>
+            <input type="email" name="email" id="email" value="<%= email %>" class="form-control" style="width: fit-content;" required>
+        </div>
+
+         <!-- 预订情况表格 -->
+          <div class="table-responsive" style="margin: 20px;">
+            <table class="table table-bordered align-middle text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th>Time Slot</th>
+                        <% tables.forEach(table => { %>
+                            <th>Table <%= table %>
+                            </th>
+                        <% }) %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% timeSlots.forEach(time=> { %>
+                        <tr>
+                            <td>
+                                <%= time %>
+                            </td>
+                            <% tables.forEach(table=> { %>
+                                <% if (booked[time] && booked[time].includes(table)) { %>
+                                    <td class="bg-secondary text-white">Booked</td>
+                                    <% } else { %>
+                                        <td class="text-white">
+                                            <form method="POST" action="/reserve" class="reserve-form">
+                                                <input type="hidden" name="date" value="<%= date %>">
+                                                <input type="hidden" name="time" value="<%= time %>">
+                                                <input type="hidden" name="table" value="<%= table %>">
+                                                <button class="btn btn-sm btn-success">Reserve</button>
+                                            </form>
+                                        </td>
+                                    <% } %>
+                                <% }) %>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+        <% } %>
+    </div>
+
+    <%- include('partials/footer.ejs') %>
+
+    <script>
+        document.querySelectorAll('.reserve-form').forEach(form => {
+            form.addEventListener('submit', function (e) {
+                // 获取顶部输入框的值
+                const name = document.getElementById('name')?.value;
+                const phone = document.getElementById('phone')?.value;
+                const email = document.getElementById('email')?.value;
+
+                // 简单验证（可选）
+                if (!name || !phone || !email) {
+                    alert("Please enter your name, phone, and email.");
+                    e.preventDefault(); // 阻止提交
+                    return;
+                }
+
+                // 创建并追加隐藏字段
+                ['name', 'phone', 'email'].forEach(field => {
+                    const value = document.getElementById(field)?.value;
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = field;
+                    input.value = value;
+                    form.appendChild(input);
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
+
+
