@@ -949,15 +949,18 @@ app.post('/addItems', function (req, res) {
     console.log('addItems:', orderTime);
 
     //if tableNumber is not null, this order is made by recepitonist
-    if (isNaN(tableNumber)) {
+    if (isNaN(tableNumber) && isNaN(res.locals.s_tableNumber)) {
         res.render('Please input table number!');
+        return
     }
 
-    if (res.locals.s_orderId && res.locals.s_tableNumber === tableNumber) {
+    if (res.locals.s_orderId && (isNaN(tableNumber) || res.locals.s_tableNumber === tableNumber)) {
         addItem2Databse(req, res);
     }
     else {
-        res.locals.s_tableNumber = req.session.tableNumber = tableNumber;
+        if(!isNaN(tableNumber)) {
+            res.locals.s_tableNumber = req.session.tableNumber = tableNumber;
+        }
 
         //create a new order
         const sql = 'INSERT INTO orders (creator, ordertime, tablenumber, status) VALUES (?, ?, ?, ?)';
@@ -1541,10 +1544,10 @@ app.post('/deleteUser', function (req, res) {
 });
 
 app.post('/addUser', (req, res) => {
-    const { username, password, firstname, lastname, phone, email } = req.body;
+    const { username, password, firstname, lastname, phone, email, role} = req.body;
     const creator = res.locals.s_username || 'admin'; // Default to 'admin' if not logged in
     const createTime = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format as 'YYYY-MM-DD HH:MM:SS'
-    const userType = 1; // Default user type
+    const userType = role; 
     const sql = 'INSERT INTO users (username, password, firstname, lastname, phone, email, usertype, creator, createtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
     conn.query(sql, [username, password, firstname, lastname, phone, email, userType, creator, createTime], (err, result) => {
         if (err) {
