@@ -81,7 +81,7 @@
                     <input name="totalMoney" type="hidden" value="<%= s_totalMoney %>">
                     <input name="totalNumber" type="hidden" value="<%= s_totalNumber %>">
                     <button class="btn btn-sm btn-primary" type="submit"
-                        style="font-size:x-large; width: 200px; height: 60px;" <%= orderStatus === 'completed' || orderStatus === 'cancelled' ? 'disabled' : '' %>>Pay</button>
+                        style="font-size:x-large; width: 200px; height: 60px;" <%= orderStatus === 'pending' || paid === 1 ? 'disabled' : '' %>>Pay</button>
                 </form>
             </div>
         <% } else { %>

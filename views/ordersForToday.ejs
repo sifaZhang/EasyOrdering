@@ -22,53 +22,61 @@
                         <!-- 第一层：订单基本信息 -->
                         <% if (order.status===s_confirmed) { %>
                             <tr style="background-color: #e0ffe0; border-top: 2px solid brown;">
-                                <td colspan="6" style="padding: 8px;">
+                                <td colspan="8" style="padding: 8px;">
                                     <span class="fw-bold" style="font-size: 18px; color: red;">
                         <% } else { %>
                             <tr style="background-color: #e0ffe0; border-top: 2px solid #455045;"></tr>
-                            <td colspan="6" style="padding: 8px;">
+                            <td colspan="8" style="padding: 8px;">
                                 <span class="fw-bold" style="font-size: 18px; color: #2a6c2a;">
                         <% } %>
                                         🍽️ Table Number: <%= order.tablenumber %>
                                 </span>
                             </td>
                             </tr>
-                            <tr class="no-print-only-new">
+                            <tr>
+                                <td style="width: 10%;"><label class="fw-bold">ID:</label></td>
+                                <td style="color:brown; width: 15%;">
+                                    <%= order.id %>
+                                </td>
                                 <td style="width: 10%;"><label class="fw-bold">Status:</label></td>
-                                <td style="color:brown; width: 20%;">
+                                <td style="color:brown; width: 15%;">
                                     <%= order.statusname %>
                                 </td>
-                                <td style="width: 10%;"><label class="fw-bold">Number:</label></td>
-                                <td style="width: 20%;">
+                                <td style="width: 10%;"  class="no-print-only-new"><label class="fw-bold">Number:</label></td>
+                                <td style="width: 15%;"  class="no-print-only-new">
                                     <%= order.total_quantity %>
                                 </td>
-                                <td style="width: 10%;"><label class="fw-bold">TotalAmount:</label></td>
-                                <td style="width: 20%;">
+                                <td style="width: 10%;"  class="no-print-only-new"><label class="fw-bold">TotalAmount:</label></td>
+                                <td style="width: 15%;"  class="no-print-only-new">
                                     $<%= order.total_amount %>
                                 </td>
                             </tr>
                             <tr>
+                                <td style="width: 10%;" class="no-print-only-new"><label class="fw-bold">Paid:</label></td>
+                                <td style="color:brown; width: 15%;"  class="no-print-only-new">
+                                    <%= order.paid === 1 ? 'yes' : 'no'  %>
+                                </td>
                                 <td style="width: 10%;"><label class="fw-bold">Creator:</label></td>
-                                <td style="width: 20%;">
+                                <td style="width: 15%;">
                                     <%= order.creator %>
                                 </td>
                                 <td style="width: 10%;"><label class="fw-bold">StartTime:</label></td>
-                                <td style="width: 20%;">
+                                <td style="width: 15%;">
                                     <%= order.ordertime %>
                                 </td>
                                 <td style="width: 10%;" class="no-print-only-new"><label class="fw-bold">FinishTime:</label></td>
                                 <% if (order.finishtime !=='Invalid Date' ) { %>
-                                    <td style="width: 20%;" class="no-print-only-new">
+                                    <td style="width: 15%;" class="no-print-only-new">
                                     <%= order.finishtime %>
                                     </td>
                                 <% } else { %>
-                                        <td style="width: 20%;" class="no-print-only-new"></td>
+                                        <td style="width: 15%;" class="no-print-only-new"></td>
                                 <% } %>
                             </tr>
     
                             <!-- 第二层嵌套：商品明细表格 -->
                             <tr>
-                                <td colspan="6">
+                                <td colspan="8">
                                     <table class="table table-sm table-bordered table-striped mb-0">
                                         <thead class="table-secondary">
                                             <tr>
@@ -147,7 +155,7 @@
     
                             <!-- button   -->
                             <tr>
-                                <td colspan="6">
+                                <td colspan="8">
                                     <div style="display: flex; justify-content: space-evenly;">
                                         <% if (order.status === s_confirmed) { %>
                                             <form action="/receiveOrder" method="POST">

@@ -248,8 +248,8 @@ app.get('/filterByDate', function (req, res) {
 
 app.get('/api/pendingOrderCount', function (req, res) {
     const now = new Date();
-    const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const startTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate())).toISOString().slice(0, 19).replace('T', ' ');
+    const endTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)).toISOString().slice(0, 19).replace('T', ' ');
 
     conn.query('SELECT COUNT(*) as count FROM orders_info where ordertime >= ? and ordertime <= ? and status = ?',
         [startTime, endTime, res.locals.s_confirmed], function (error, results) {
@@ -371,14 +371,16 @@ app.get('/cart', function (req, res) {
                 res.render('cart', {
                     success: true,
                     orderItems: results,
-                    orderStatus: results2[0].statusname
+                    orderStatus: results2[0].statusname,
+                    paid: results2[0].paid
                 });
             }
             else {
                 res.render('cart', {
                     success: true,
                     orderItems: [],
-                    orderStatus: ''
+                    orderStatus: '',
+                    paid: ''
                 });
             }
         });
@@ -822,13 +824,13 @@ app.post('/pay', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid orderId'});
     }
 
-    const sql = 'UPDATE orders SET status = ?, finishtime = ? where id = ?';
-    conn.query(sql, [res.locals.s_completed, finishtime, orderId], (err, result) => {
+    const sql = 'UPDATE orders SET paid = 1 where id = ?';
+    conn.query(sql, [orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
             return res.status(500).json({ success: false, message: 'Failed to update database.' });
         } else {
-            resetCurrentTableInfo(req, res);
+            //resetCurrentTableInfo(req, res);
 
             res.redirect('/payment?success=1');
         }
@@ -879,7 +881,7 @@ app.post('/finishOrder', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid orderId'});
     }
 
-    const sql = 'UPDATE orders SET status = ?, finishtime = ? where id = ?';
+    const sql = 'UPDATE orders SET status = ?, finishtime = ?, paid = 1 where id = ?';
     conn.query(sql, [res.locals.s_completed, finishtime, orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
@@ -963,8 +965,8 @@ app.post('/addItems', function (req, res) {
         }
 
         //create a new order
-        const sql = 'INSERT INTO orders (creator, ordertime, tablenumber, status) VALUES (?, ?, ?, ?)';
-        conn.query(sql, [res.locals.s_username, orderTime, res.locals.s_tableNumber, res.locals.s_pending], (err, result) => {
+        const sql = 'INSERT INTO orders (creator, ordertime, tablenumber, status, paid) VALUES (?, ?, ?, ?, ?)';
+        conn.query(sql, [res.locals.s_username, orderTime, res.locals.s_tableNumber, res.locals.s_pending, 0], (err, result) => {
             if (err) {
                 console.error('Database insert error:', err);
                 return res.status(500).json({success: false, message: 'Failed to save a new order to database.'});
