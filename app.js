@@ -264,7 +264,7 @@ app.get('/ordersForToday', function (req, res) {
     const startTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate())).toISOString().slice(0, 19).replace('T', ' ');
     const endTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)).toISOString().slice(0, 19).replace('T', ' ');
 
-    conn.query('SELECT * FROM orders_info where ordertime >= ? and ordertime <= ? order by (status = 12) DESC, status, tablenumber, id ASC', 
+    conn.query('SELECT * FROM orders_info where ordertime >= ? and ordertime <= ? order by (status = 12) DESC, status ASC, id DESC ', 
         [startTime, endTime], function (error, results) {
             if (error) {
                 return res.status(500).send('Database error (orders_info)', error);
@@ -636,7 +636,7 @@ function addItem2Databse(req, res) {
     let itemNumber = parseInt(req.body.itemNumber);
     const orderTime = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format as 'YYYY-MM-DD HH:MM:SS'
 
-    const sql = 'UPDATE orders SET status = ? where id = ?';
+    const sql = 'UPDATE orders SET paid = 0, status = ? where id = ?';
     conn.query(sql, [res.locals.s_pending, res.locals.s_orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
