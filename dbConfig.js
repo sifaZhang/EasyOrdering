@@ -1,16 +1,32 @@
-// dbConfig.js - PostgreSQL 版本
+// dbConfig.js - PostgreSQL 版本（支持 Neon）
 const { Pool } = require('pg');
 
-const pool = new Pool({
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_NAME || 'easyordering',
-    // Neon 连接示例（使用连接字符串）
-    // connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+// 优先使用完整的连接字符串
+let poolConfig;
+
+if (process.env.DATABASE_URL) {
+    // 使用 Neon 提供的完整连接字符串
+    poolConfig = {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' 
+            ? { rejectUnauthorized: false } 
+            : false
+    };
+} else {
+    // 使用分离的配置
+    poolConfig = {
+        host: process.env.DB_HOST || 'localhost',
+        port: process.env.DB_PORT || 5432,
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || 'password',
+        database: process.env.DB_NAME || 'easyordering',
+        ssl: process.env.NODE_ENV === 'production' 
+            ? { rejectUnauthorized: false } 
+            : false
+    };
+}
+
+const pool = new Pool(poolConfig);
 
 // 保持与原有 conn 相同的接口
 const conn = {
@@ -44,11 +60,14 @@ const conn = {
             });
     },
     
+    // 获取连接（用于事务）
+    getClient: async () => {
+        return await pool.connect();
+    },
+    
     // 支持事务
-    begin: async () => {
-        const client = await pool.connect();
+    begin: async (client) => {
         await client.query('BEGIN');
-        return client;
     },
     
     commit: async (client) => {
