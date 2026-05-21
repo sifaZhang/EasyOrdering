@@ -1211,7 +1211,10 @@ app.post('/addQRCode', function (req, res) {
         const fileName = `table${table}.png`;
         const filePath = path.join(dirPath, fileName);
         const dataPath = `/QRCodes/${fileName}`; // 前端可访问的路径（假设 public 是静态资源目录）
-        const url = `http://localhost:3000/table/${table}`; // 二维码内容
+        //const url = `http://localhost:3000/table/${table}`; // 二维码内容
+        // 动态获取域名（支持 Render 和本地开发）
+        const baseUrl = process.env.RENDER_EXTERNAL_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        const url = `${baseUrl}/table/${table}`; // 二维码内容
 
         // 4. 创建目录（如果不存在）
         fs.mkdir(dirPath, { recursive: true }, (err) => {
