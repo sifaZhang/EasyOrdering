@@ -1,9 +1,4 @@
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
-
-
+// app.js - PostgreSQL 版本
 require('dotenv').config();
 
 //This line uses the require function to include the express module.
@@ -98,14 +93,16 @@ function toLocalDatetimeString(utcInput) {
 
 app.get('/', function (req, res) {
     const topN = 5;
-    conn.query('CALL SelectTopItemsByType(?)', [topN], function (error, results) {
+    // PostgreSQL 调用函数的方式
+    conn.query('SELECT * FROM SelectTopItemsByType($1)', [topN], function (error, results) {
         if (error) {
+            console.error('Database error (SelectTopItemsByType):', error);
             return res.status(500).send('Database error (SelectTopItemsByType)');
         }
 
         res.render('home', {
             success: true,
-            topNItemsPerType: results[0],
+            topNItemsPerType: results,
             topN: topN
         });
     });
@@ -134,7 +131,7 @@ app.get('/reserveBydate', function (req, res) {
                 });
             }
 
-            conn.query('SELECT * FROM reservations where date = ?',
+            conn.query('SELECT * FROM reservations where date = $1',
                 [searchDate], function (error2, results2) {
                     if (error2) {
                         return res.status(500).send('Database error (reservation)', error2);
@@ -203,7 +200,7 @@ app.get('/ordersForHistory', function (req, res) {
                 });
     }
 
-    conn.query('SELECT * FROM orders_info where ordertime >= ? and ordertime <= ? order by ordertime, tablenumber, id ASC', 
+    conn.query('SELECT * FROM orders_info where ordertime >= $1 and ordertime <= $2 order by ordertime, tablenumber, id ASC', 
         [startTime, endTime], function (error, results) {
             if (error) {
                 return res.status(500).send('Database error (orders_info)', error);
@@ -224,7 +221,7 @@ app.get('/ordersForHistory', function (req, res) {
                 });
             }
             else {
-                conn.query('SELECT * FROM order_items_info where orderid in (?)',
+                conn.query('SELECT * FROM order_items_info where orderid = ANY($1::int[])',
                     [orderIds], function (error2, results2) {
                         if (error2) {
                             return res.status(500).send('Database error (order_items)');
@@ -254,33 +251,31 @@ app.get('/filterByDate', function (req, res) {
 
 app.get('/api/pendingOrderCount', function (req, res) {
     const now = new Date();
-    const startTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate())).toISOString().slice(0, 19).replace('T', ' ');
-    const endTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)).toISOString().slice(0, 19).replace('T', ' ');
+    const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-    conn.query('SELECT COUNT(*) as count FROM orders_info where ordertime >= ? and ordertime <= ? and status = ?',
+    conn.query('SELECT COUNT(*) as count FROM orders_info where ordertime >= $1 and ordertime <= $2 and status = $3',
         [startTime, endTime, res.locals.s_confirmed], function (error, results) {
             if (error) return res.status(500).json({ error: 'Database error' });
-            res.json({ count: results[0].count });
+            res.json({ count: parseInt(results[0].count) });
         }
     );
 });
 
 app.get('/ordersForToday', function (req, res) {
     const now = new Date();
-    const startTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate())).toISOString().slice(0, 19).replace('T', ' ');
-    const endTime = (new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)).toISOString().slice(0, 19).replace('T', ' ');
+    const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-    conn.query('SELECT * FROM orders_info where ordertime >= ? and ordertime <= ? order by (status = 12) DESC, status ASC, id DESC ', 
+    conn.query('SELECT * FROM orders_info where ordertime >= $1 and ordertime <= $2 order by (status = 12) DESC, status ASC, id DESC ', 
         [startTime, endTime], function (error, results) {
             if (error) {
                 return res.status(500).send('Database error (orders_info)', error);
             }
 
             results.forEach(element => {
-                //console.log('before:', element.ordertime, element.finishtime);
                 element.ordertime = toLocalDatetimeString(element.ordertime);
                 element.finishtime = toLocalDatetimeString(element.finishtime);
-                //console.log('after:', element.ordertime, element.finishtime);
             });
 
             const orderIds = results.map(order => order.id);
@@ -292,7 +287,7 @@ app.get('/ordersForToday', function (req, res) {
                 });
             }
             else {
-                conn.query('SELECT * FROM order_items_info where orderid in (?)',
+                conn.query('SELECT * FROM order_items_info where orderid = ANY($1::int[])',
                     [orderIds], function (error2, results2) {
                         if (error2) {
                             return res.status(500).send('Database error (order_items)');
@@ -363,12 +358,12 @@ app.get('/qrcode', function (req, res) {
 });
 
 app.get('/cart', function (req, res) {
-    conn.query('SELECT * FROM order_items_info WHERE orderid = ?', [res.locals.s_orderId], function (error, results) {
+    conn.query('SELECT * FROM order_items_info WHERE orderid = $1', [res.locals.s_orderId], function (error, results) {
         if (error) {
             return res.status(500).send('Database error (order_items_info)');
         }
 
-        conn.query('SELECT * FROM orders_info WHERE id = ?', [res.locals.s_orderId], function (error2, results2) {
+        conn.query('SELECT * FROM orders_info WHERE id = $1', [res.locals.s_orderId], function (error2, results2) {
             if (error2) {
                 return res.status(500).send('Database error (orders_info)');
             }
@@ -394,26 +389,27 @@ app.get('/cart', function (req, res) {
 });
 
 function renderOverviewMenu(req, res) {
-    conn.query('SELECT * FROM menu_info where itemAvailable = 1 ORDER BY foodtype ASC', function (error, menuResults) {
+    conn.query('SELECT * FROM menu_info where "itemAvailable" = true ORDER BY foodtype ASC', function (error, menuResults) {
         if (error) {
+            console.error('Database error (menu_info):', error);
             return res.status(500).send('Database error (menu_info)');
         }
 
 
-        conn.query('SELECT * FROM food_type WHERE available = 1 ORDER BY showorder', function (error2, foodTypeResults) {
+        conn.query('SELECT * FROM food_type WHERE available = true ORDER BY showorder', function (error2, foodTypeResults) {
             if (error2) {
                 return res.status(500).send('Database error (food_type)');
             }
 
             if (String(res.locals.s_orderId) !== '0') {
-                conn.query('SELECT SUM(price * itemnumber * (100 - discount) / 100) AS total_price, SUM(itemnumber) AS total_number FROM order_items WHERE orderid = ? and status < ?',
+                conn.query('SELECT SUM(price * itemnumber * (100 - discount) / 100) AS total_price, SUM(itemnumber) AS total_number FROM order_items WHERE orderid = $1 and status < $2',
                     [res.locals.s_orderId, res.locals.s_completed], function (error3, statisticsResults) {
                         if (error3) {
                             return res.status(500).send('Database error (statisticsResults)');
                         }
                         else if (statisticsResults.length > 0) {
-                            res.locals.s_totalNumber = req.session.totalNumber = statisticsResults[0].total_number || 0;
-                            res.locals.s_totalMoney = req.session.totalMoney = statisticsResults[0].total_price || 0;
+                            res.locals.s_totalNumber = req.session.totalNumber = parseInt(statisticsResults[0].total_number) || 0;
+                            res.locals.s_totalMoney = req.session.totalMoney = parseFloat(statisticsResults[0].total_price) || 0;
                             res.render('overviewMenu', {
                                 menu: menuResults,
                                 foodtypes: foodTypeResults
@@ -480,7 +476,7 @@ app.get('/table/:table', (req, res) => {
             });
 
             //check whether the customer has existed
-            const query = 'SELECT * FROM orders WHERE tablenumber = ? and status < ? and ordertime >= ?';
+            const query = 'SELECT * FROM orders WHERE tablenumber = $1 and status < $2 and ordertime >= $3';
             conn.query(query, [tableNumber, res.locals.s_completed, startTime], function (err, results) {
                 if (err) {
                     console.error(err);
@@ -528,7 +524,7 @@ app.get('/menuItems', function (req, res) {
         return res.status(400).json({ error: 'Invalid categoryId' });
     }
 
-    const query = 'SELECT * FROM menu_info WHERE foodtype = ?';
+    const query = 'SELECT * FROM menu_info WHERE foodtype = $1';
 
     conn.query(query, [categoryId], function (err, results) {
         if (err) {
@@ -541,7 +537,7 @@ app.get('/menuItems', function (req, res) {
 });
 
 app.get('/customizeMenu', function (req, res) {
-    conn.query('SELECT * FROM food_type  where available = 1 order by showOrder ASC', function (error, results) {
+    conn.query('SELECT * FROM food_type  where available = true order by showOrder ASC', function (error, results) {
         if (error) {
             return res.status(500).send('Database error (food_type)');
         }
@@ -561,7 +557,7 @@ app.get('/customizeMenu', function (req, res) {
 
 app.get('/updateAccount', function (req, res) {
     if (res.locals.s_username) {
-        conn.query('SELECT * FROM users WHERE username = ?', [res.locals.s_username],
+        conn.query('SELECT * FROM users WHERE username = $1', [res.locals.s_username],
             function (error, results) {
                 if (error) {
                     res.status(500).send('Database error');
@@ -610,15 +606,15 @@ app.get('/logout',(req,res) => {
 });
 
 function sendStatistics(req, res) {
-    conn.query('SELECT SUM(price * itemnumber * (100 - discount) / 100) AS total_price, SUM(itemnumber) AS total_number FROM order_items WHERE orderid = ? and status = ?',
+    conn.query('SELECT SUM(price * itemnumber * (100 - discount) / 100) AS total_price, SUM(itemnumber) AS total_number FROM order_items WHERE orderid = $1 and status = $2',
         [res.locals.s_orderId, res.locals.s_pending], function (error, results) {
             if (error) {
                 return res.status(500).send('Failed to calculate statistics.');
             }
 
             if (results.length > 0) {
-                res.locals.s_totalMoney = req.session.totalMoney = results[0].total_price || 0;
-                res.locals.s_totalNumber = req.session.totalNumber = results[0].total_number || 0;
+                res.locals.s_totalMoney = req.session.totalMoney = parseFloat(results[0].total_price) || 0;
+                res.locals.s_totalNumber = req.session.totalNumber = parseInt(results[0].total_number) || 0;
                 res.json({
                     success: true,
                     totalMoney: res.locals.s_totalMoney,
@@ -642,14 +638,14 @@ function addItem2Databse(req, res) {
     let itemNumber = parseInt(req.body.itemNumber);
     const orderTime = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format as 'YYYY-MM-DD HH:MM:SS'
 
-    const sql = 'UPDATE orders SET paid = 0, status = ? where id = ?';
+    const sql = 'UPDATE orders SET paid = false, status = $1 where id = $2';
     conn.query(sql, [res.locals.s_pending, res.locals.s_orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
             return res.status(500).json({ success: false, message: 'Failed to update database.' });
         } 
     
-        conn.query('SELECT * from order_items where orderid = ? and itemid = ? and status = ?',
+        conn.query('SELECT * from order_items where orderid = $1 and itemid = $2 and status = $3',
             [res.locals.s_orderId, itemId, res.locals.s_pending], (err, result) => {
                 if (err) {
                     return res.status(500).send('Failed to save new items to database.');
@@ -658,7 +654,7 @@ function addItem2Databse(req, res) {
                     const orderItemId = result[0].id;
 
                     // 也可以直接更新
-                    const updateSQL = 'UPDATE order_items SET itemnumber = ? WHERE id = ? ';
+                    const updateSQL = 'UPDATE order_items SET itemnumber = $1 WHERE id = $2';
                     conn.query(updateSQL, [itemNumber, orderItemId], (err2, result2) => {
                         if (err2) {
                             return res.status(500).send('Failed to update item.');
@@ -668,7 +664,7 @@ function addItem2Databse(req, res) {
                     });
                 } else {
                     // 没有原来项，直接插入
-                    const insertSQL = 'INSERT INTO order_items (itemid, itemname, price, discount, itemnumber, orderid, status) VALUES (?, ?, ?, ?, ?, ?, ?)';
+                    const insertSQL = 'INSERT INTO order_items (itemid, itemname, price, discount, itemnumber, orderid, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id';
                     conn.query(insertSQL, [itemId, itemName, price, discount, itemNumber, res.locals.s_orderId, res.locals.s_pending], (err3, result3) => {
                         if (err3) {
                             return res.status(500).send('Failed to insert item.');
@@ -690,7 +686,7 @@ app.post('/cancelReserve', function (req, res) {
         return res.status(500).json({ success: false, message: 'Invalid table number' });
     }
 
-    const selectSql = 'SELECT * FROM reservations WHERE date = ? AND timeslot = ? AND tablenumber = ?';
+    const selectSql = 'SELECT * FROM reservations WHERE date = $1 AND timeslot = $2 AND tablenumber = $3';
     conn.query(selectSql, [date, timeslot, tablenumber], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error (select)' });
 
@@ -700,7 +696,7 @@ app.post('/cancelReserve', function (req, res) {
 
         const deletedRecord = rows[0]; // 保存即将删除的记录
 
-        const sql = 'DELETE FROM reservations WHERE date = ? AND timeslot = ? AND tablenumber = ?';
+        const sql = 'DELETE FROM reservations WHERE date = $1 AND timeslot = $2 AND tablenumber = $3';
         conn.query(sql, [date, timeslot, tablenumber], (err, result) => {
             if (err) {
                 console.error('Database delete error:', err);
@@ -764,7 +760,7 @@ app.post('/reserve', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid table number'});
     }
 
-    const sql = 'INSERT INTO reservations (email, phone, customername, date, timeslot, tablenumber) VALUES (?, ?, ?, ?, ?, ?)';
+    const sql = 'INSERT INTO reservations (email, phone, customername, date, timeslot, tablenumber) VALUES ($1, $2, $3, $4, $5, $6)';
     conn.query(sql, [email, phone, customerName, date, timeslot, tablenumber], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
@@ -830,7 +826,7 @@ app.post('/pay', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid orderId'});
     }
 
-    const sql = 'UPDATE orders SET paid = 1 where id = ?';
+    const sql = 'UPDATE orders SET paid = true where id = $1';
     conn.query(sql, [orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
@@ -850,7 +846,7 @@ app.post('/placeOrder', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid orderId'});
     }
 
-    const sql = 'UPDATE orders SET status = ? where id = ?';
+    const sql = 'UPDATE orders SET status = $1 where id = $2';
     conn.query(sql, [res.locals.s_confirmed, orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
@@ -868,7 +864,7 @@ app.post('/receiveOrder', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid orderId'});
     }
 
-    const sql = 'UPDATE orders SET status = ? where id = ?';
+    const sql = 'UPDATE orders SET status = $1 where id = $2';
     conn.query(sql, [res.locals.s_preparing, orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
@@ -887,7 +883,7 @@ app.post('/finishOrder', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid orderId'});
     }
 
-    const sql = 'UPDATE orders SET status = ?, finishtime = ?, paid = 1 where id = ?';
+    const sql = 'UPDATE orders SET status = $1, finishtime = $2, paid = true where id = $3';
     conn.query(sql, [res.locals.s_completed, finishtime, orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
@@ -911,7 +907,7 @@ app.post('/cancelOrder', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid orderId'});
     }
 
-    const sql = 'UPDATE orders SET status = ?, finishtime = ? where id = ?';
+    const sql = 'UPDATE orders SET status = $1, finishtime = $2 where id = $3';
     conn.query(sql, [res.locals.s_cancelled, finishtime, orderId], (err, result) => {
         if (err) {
             console.error('Database update error:', err);
@@ -934,7 +930,7 @@ app.post('/deleteOrder', function (req, res) {
         return res.status(500).json({success: false, message: 'Invalid orderId'});
     }
 
-    const sql = 'DELETE from orders where id = ?';
+    const sql = 'DELETE from orders where id = $1';
     conn.query(sql, [orderId], (err, result) => {
         if (err) {
             console.error('Database delete error:', err);
@@ -971,13 +967,13 @@ app.post('/addItems', function (req, res) {
         }
 
         //create a new order
-        const sql = 'INSERT INTO orders (creator, ordertime, tablenumber, status, paid) VALUES (?, ?, ?, ?, ?)';
-        conn.query(sql, [res.locals.s_username, orderTime, res.locals.s_tableNumber, res.locals.s_pending, 0], (err, result) => {
+        const sql = 'INSERT INTO orders (creator, ordertime, tablenumber, status, paid) VALUES ($1, $2, $3, $4, $5) RETURNING id';
+        conn.query(sql, [res.locals.s_username, orderTime, res.locals.s_tableNumber, res.locals.s_pending, false], (err, result) => {
             if (err) {
                 console.error('Database insert error:', err);
                 return res.status(500).json({success: false, message: 'Failed to save a new order to database.'});
             } else {
-                res.locals.s_orderId = req.session.orderId = result.insertId;
+                res.locals.s_orderId = req.session.orderId = result[0].id;
 
                 addItem2Databse(req, res);
             }
@@ -995,7 +991,7 @@ app.post('/ReadyItem', function (req, res) {
                 message: 'Invalid itemId or orderId'});
     }
 
-    conn.query('update order_items SET status = ? WHERE id = ?', [res.locals.s_ready, itemId], function (err, result) {
+    conn.query('UPDATE order_items SET status = $1 WHERE id = $2', [res.locals.s_ready, itemId], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).json({
@@ -1003,7 +999,7 @@ app.post('/ReadyItem', function (req, res) {
                 message: 'Database error (order_items)'});
         }
 
-        conn.query('SELECT * FROM order_items_info WHERE orderid = ?', [orderId], function (error, results) {
+        conn.query('SELECT * FROM order_items_info WHERE orderid = $1', [orderId], function (error, results) {
             if (error) {
                 return res.status(500).json({
                     success: false,
@@ -1012,7 +1008,7 @@ app.post('/ReadyItem', function (req, res) {
             }
 
             const newStatus = caculateStatus(results, res);
-            conn.query('update orders SET status = ? WHERE id = ?', [newStatus, orderId], function (err, result) {
+            conn.query('UPDATE orders SET status = $1 WHERE id = $2', [newStatus, orderId], function (err, result) {
                 if (err) {
                     console.error(err);
                     return res.status(500).json({
@@ -1037,7 +1033,7 @@ app.post('/deleteItemByR', function (req, res) {
                 message: 'Invalid itemId or orderId'});
     }
 
-    conn.query('delete from order_items WHERE id = ?', [itemId], function (err, result) {
+    conn.query('DELETE FROM order_items WHERE id = $1', [itemId], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).json({
@@ -1045,7 +1041,7 @@ app.post('/deleteItemByR', function (req, res) {
                 message: 'Database error (order_items)'});
         }
 
-        conn.query('SELECT * FROM order_items_info WHERE orderid = ?', [orderId], function (error, results) {
+        conn.query('SELECT * FROM order_items_info WHERE orderid = $1', [orderId], function (error, results) {
             if (error) {
                 return res.status(500).json({
                     success: false,
@@ -1054,7 +1050,7 @@ app.post('/deleteItemByR', function (req, res) {
             }
 
             const newStatus = caculateStatus(results, res);
-            conn.query('update orders SET status = ? WHERE id = ?', [newStatus, orderId], function (err, result) {
+            conn.query('UPDATE orders SET status = $1 WHERE id = $2', [newStatus, orderId], function (err, result) {
                 if (err) {
                     console.error(err);
                     return res.status(500).json({
@@ -1126,7 +1122,7 @@ app.post('/deleteItem', function (req, res) {
                 message: 'Invalid itemId'});
     }
 
-    conn.query('DELETE FROM order_items WHERE id = ?', [itemId], function (err, result) {
+    conn.query('DELETE FROM order_items WHERE id = $1', [itemId], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).json({
@@ -1134,7 +1130,7 @@ app.post('/deleteItem', function (req, res) {
                 message: 'Database error (order_items)'});
         }
 
-        conn.query('SELECT * FROM order_items_info WHERE orderid = ?', [res.locals.s_orderId], function (error, results) {
+        conn.query('SELECT * FROM order_items_info WHERE orderid = $1', [res.locals.s_orderId], function (error, results) {
             if (error) {
                 return res.status(500).json({
                     success: false,
@@ -1143,7 +1139,7 @@ app.post('/deleteItem', function (req, res) {
             }
 
             const newStatus = caculateStatus(results, res);
-            conn.query('update orders SET status = ? WHERE id = ?', [newStatus, res.locals.s_orderId], function (err, result) {
+            conn.query('UPDATE orders SET status = $1 WHERE id = $2', [newStatus, res.locals.s_orderId], function (err, result) {
                 if (err) {
                     console.error(err);
                     return res.status(500).json({
@@ -1152,14 +1148,14 @@ app.post('/deleteItem', function (req, res) {
                     });
                 }
 
-                conn.query('SELECT SUM(price * itemnumber * (100 - discount) / 100) AS total_price, SUM(itemnumber) AS total_number FROM order_items WHERE orderid = ? and status = ?',
+                conn.query('SELECT SUM(price * itemnumber * (100 - discount) / 100) AS total_price, SUM(itemnumber) AS total_number FROM order_items WHERE orderid = $1 and status = $2',
                     [res.locals.s_orderId, res.locals.s_pending], function (error3, statisticsResults) {
                         if (error3) {
                             return res.status(500).send('Database error (statisticsResults)');
                         }
                         else if (statisticsResults.length > 0) {
-                            res.locals.s_totalMoney = req.session.totalMoney = statisticsResults[0].total_price || 0;
-                            res.locals.s_totalNumber = req.session.totalNumber = statisticsResults[0].total_number || 0;
+                            res.locals.s_totalMoney = req.session.totalMoney = parseFloat(statisticsResults[0].total_price) || 0;
+                            res.locals.s_totalNumber = req.session.totalNumber = parseInt(statisticsResults[0].total_number) || 0;
                             res.json({
                                 success: true,
                                 totalMoney: res.locals.s_totalMoney,
@@ -1179,7 +1175,7 @@ app.post('/deleteQRCode', function (req, res) {
         return res.status(400).send('Invalid tableNumber');
     }
 
-    conn.query('DELETE FROM qrcode WHERE tableNumber = ?', [tableNumber], function (err, result) {
+    conn.query('DELETE FROM qrcode WHERE tableNumber = $1', [tableNumber], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).send('Database error');
@@ -1200,7 +1196,7 @@ app.post('/addQRCode', function (req, res) {
     }
 
     // 2. 检查桌号是否已存在
-    conn.query('SELECT * FROM qrcode WHERE tablenumber = ?', [table], function (err, result) {
+    conn.query('SELECT * FROM qrcode WHERE tablenumber = $1', [table], function (err, result) {
         if (err) {
             console.error('Database query error:', err);
             return res.status(500).json({ error: 'Database error' });
@@ -1236,7 +1232,7 @@ app.post('/addQRCode', function (req, res) {
                 }
 
                 // 6. 存入数据库
-                const sql = 'INSERT INTO qrcode (tablenumber, creator, createtime, picture) VALUES (?, ?, ?, ?)';
+                const sql = 'INSERT INTO qrcode (tablenumber, creator, createtime, picture) VALUES ($1, $2, $3, $4)';
                 conn.query(sql, [table, creator, createTime, dataPath], (err, result) => {
                     if (err) {
                         console.error('Database insert error:', err);
@@ -1263,7 +1259,7 @@ app.post('/upFoodtype', function (req, res) {
         return res.status(400).send('Invalid showOrder');
     }
 
-    conn.query('SELECT * FROM food_type WHERE showOrder < ? order by showOrder DESC', [showOrder], function (err, result) {
+    conn.query('SELECT * FROM food_type WHERE showOrder < $1 order by showOrder DESC', [showOrder], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).send('Database error');
@@ -1271,8 +1267,8 @@ app.post('/upFoodtype', function (req, res) {
             upShowOrder = result[0].showOrder;
             upId = result[0].id;
 
-            conn.query('UPDATE food_type SET creator = ?, createtime = ?, showOrder = CASE WHEN id = ? THEN ? WHEN id = ? THEN ? ELSE showOrder END WHERE id IN (?, ?)',
-                 [creator, createTime, id, upShowOrder, upId, showOrder, id, upId], function (err1, result1) {
+            conn.query('UPDATE food_type SET creator = $1, createtime = $2, showOrder = CASE WHEN id = $3 THEN $4 WHEN id = $5 THEN $6 ELSE showOrder END WHERE id IN ($3, $5)',
+                 [creator, createTime, id, upShowOrder, upId, showOrder], function (err1, result1) {
                 if (err1) {
                     console.error(err1);
                     return res.status(500).send('Database error');
@@ -1299,7 +1295,7 @@ app.post('/downFoodtype', function (req, res) {
         return res.status(400).send('Invalid showOrder');
     }
 
-    conn.query('SELECT * FROM food_type WHERE showOrder > ? order by showOrder ASC', [showOrder], function (err, result) {
+    conn.query('SELECT * FROM food_type WHERE showOrder > $1 order by showOrder ASC', [showOrder], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).send('Database error');
@@ -1307,8 +1303,8 @@ app.post('/downFoodtype', function (req, res) {
             downShowOrder = result[0].showOrder;
             downId = result[0].id;
 
-            conn.query('UPDATE food_type SET creator = ?, createtime = ?, showOrder = CASE WHEN id = ? THEN ? WHEN id = ? THEN ? ELSE showOrder END WHERE id IN (?, ?)',
-                 [creator, createTime, id, downShowOrder, downId, showOrder, id, downId], function (err1, result1) {
+            conn.query('UPDATE food_type SET creator = $1, createtime = $2, showOrder = CASE WHEN id = $3 THEN $4 WHEN id = $5 THEN $6 ELSE showOrder END WHERE id IN ($3, $5)',
+                 [creator, createTime, id, downShowOrder, downId, showOrder], function (err1, result1) {
                 if (err1) {
                     console.error(err1);
                     return res.status(500).send('Database error');
@@ -1332,7 +1328,7 @@ app.post('/updateFoodtype', function (req, res) {
         return res.status(400).send('Invalid user ID');
     }
 
-    conn.query('update food_type set available = ?, creator = ?, createtime = ? WHERE id = ?', [available, creator, createTime, id], function (err, result) {
+    conn.query('UPDATE food_type set available = $1, creator = $2, createtime = $3 WHERE id = $4', [available, creator, createTime, id], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).send('Database error');
@@ -1348,7 +1344,7 @@ app.post('/deleteFoodtype', function (req, res) {
         return res.status(400).send('Invalid user ID');
     }
 
-    conn.query('DELETE FROM food_type WHERE id = ?', [id], function (err, result) {
+    conn.query('DELETE FROM food_type WHERE id = $1', [id], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).send('Database error');
@@ -1368,13 +1364,13 @@ app.post('/addFoodtype', (req, res) => {
         function (error, results) {
             if (error) {
                 res.status(500).send('Database error');
-            } else if (results.length > 0) {
-                showOrder = results[0].maxorder;
+            } else if (results.length > 0 && results[0].maxorder) {
+                showOrder = results[0].maxorder + 1;
             }
         });
 
 
-    const sql = 'INSERT INTO food_type (name, creator, createtime, available, showOrder) VALUES (?, ?, ?, ?, ?)';
+    const sql = 'INSERT INTO food_type (name, creator, createtime, available, showOrder) VALUES ($1, $2, $3, $4, $5)';
     conn.query(sql, [foodTypeName, creator, createTime, true, showOrder], (err, result) => {
         if (err) {
             res.status(500).send('add Foodtype failed: ' + err.message);
@@ -1404,7 +1400,7 @@ app.post('/addMenuItem', upload.single('image'), (req, res) => {
         return res.status(400).send('Invalid foodTypeId');
     }
 
-    const sql = 'INSERT INTO menu (name, picture, description, price, foodtype, discount, creator, createtime, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const sql = 'INSERT INTO menu (name, picture, description, price, foodtype, discount, creator, createtime, available) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)';
     conn.query(sql, [name, image, description, price, foodTypeId, discount, creator, createTime, available], (err, result) => {
         if (err) {
             res.status(500).send('add MenuItem failed: ' + err.message);
@@ -1443,7 +1439,7 @@ app.post('/deleteMenuItem', (req, res) => {
         return res.status(400).send('Invalid foodtype');
     }
 
-    conn.query('DELETE FROM menu WHERE id = ?', [id], function (err, result) {
+    conn.query('DELETE FROM menu WHERE id = $1', [id], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).send('Database error');
@@ -1467,7 +1463,7 @@ app.post('/listMenuItem', function (req, res) {
     if (isNaN(foodtype)) {
         return res.status(400).send('Invalid foodtype');
     }
-    conn.query('update menu set available = ?, creator = ?, createtime = ? WHERE id = ?', [available, creator, createTime, id], function (err, result) {
+    conn.query('UPDATE menu set available = $1, creator = $2, createtime = $3 WHERE id = $4', [available, creator, createTime, id], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).send('Database error');
@@ -1503,7 +1499,7 @@ app.post('/updateMenuItem', upload.single('image'), (req, res) => {
 
     if (image) {
         // delete the old picture before updating
-        conn.query('SELECT picture FROM menu WHERE id = ?', [id],
+        conn.query('SELECT picture FROM menu WHERE id = $1', [id],
             function (error, results, fields) {
                 if (error) throw error;
                 if (results.length > 0) {
@@ -1512,7 +1508,7 @@ app.post('/updateMenuItem', upload.single('image'), (req, res) => {
                 } 
             });
 
-        conn.query('update menu set name = ?, picture = ?, description = ?, price = ?, foodtype = ?, discount = ?, available = ?, creator = ?, createtime = ? WHERE id = ?',
+        conn.query('UPDATE menu set name = $1, picture = $2, description = $3, price = $4, foodtype = $5, discount = $6, available = $7, creator = $8, createtime = $9 WHERE id = $10',
             [name, image, description, price, foodTypeId, discount, available, creator, createTime, id], function (err, result) {
                 if (err) {
                     console.error(err);
@@ -1523,7 +1519,7 @@ app.post('/updateMenuItem', upload.single('image'), (req, res) => {
             });
     }
     else {
-        conn.query('update menu set name = ?, description = ?, price = ?, foodtype = ?, discount = ?, available = ?, creator = ?, createtime = ? WHERE id = ?',
+        conn.query('UPDATE menu set name = $1, description = $2, price = $3, foodtype = $4, discount = $5, available = $6, creator = $7, createtime = $8 WHERE id = $9',
             [name, description, price, foodTypeId, discount, available, creator, createTime, id], function (err, result) {
                 if (err) {
                     console.error(err);
@@ -1541,7 +1537,7 @@ app.post('/deleteUser', function (req, res) {
         return res.status(400).send('Invalid user ID');
     }
 
-    conn.query('DELETE FROM users WHERE id = ?', [id], function (err, result) {
+    conn.query('DELETE FROM users WHERE id = $1', [id], function (err, result) {
         if (err) {
             console.error(err);
             return res.status(500).send('Database error');
@@ -1556,7 +1552,7 @@ app.post('/addUser', (req, res) => {
     const creator = res.locals.s_username || 'admin'; // Default to 'admin' if not logged in
     const createTime = new Date().toISOString().slice(0, 19).replace('T', ' '); // Format as 'YYYY-MM-DD HH:MM:SS'
     const userType = role; 
-    const sql = 'INSERT INTO users (username, password, firstname, lastname, phone, email, usertype, creator, createtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const sql = 'INSERT INTO users (username, password, firstname, lastname, phone, email, usertype, creator, createtime) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)';
     conn.query(sql, [username, password, firstname, lastname, phone, email, userType, creator, createTime], (err, result) => {
         if (err) {
             res.status(500).send('add user failed: ' + err.message);
@@ -1573,14 +1569,14 @@ app.post('/updateAccountInfo', function (req, res) {
 
     if (req.body.password === req.body.repassword) {
         if (username) {
-            conn.query('SELECT * FROM users WHERE username = ?', [username],
+            conn.query('SELECT * FROM users WHERE username = $1', [username],
                 function (error, results, fields) {
                     if (error) throw error;
                     if (results.length > 0 && userId != results[0].id) {
                         console.log("Username:", username, " has existed.", userId);
                         res.send('Username has existed!');
                     } else {
-                        conn.query('update users set username = ?, firstname = ?, lastname = ?, password = ?, email = ?, phone = ? WHERE id = ?',
+                        conn.query('UPDATE users set username = $1, firstname = $2, lastname = $3, password = $4, email = $5, phone = $6 WHERE id = $7',
                              [req.body.username, req.body.firstname, req.body.lastname, req.body.password, req.body.email, req.body.phone, userId],
                             function (error, results, fields) {
                                 if (error) throw error;
@@ -1603,7 +1599,7 @@ app.post('/updateAccountInfo', function (req, res) {
 app.post('/reset', function(req, res) {
 	let email = req.body.email
     if (email) {
-        conn.query('SELECT * FROM users WHERE email = ?', [email], 
+        conn.query('SELECT * FROM users WHERE email = $1', [email], 
             function(error, results, fields) {
             if (error) throw error;
             if (results.length > 0) {
@@ -1655,7 +1651,7 @@ app.post('/auth', function(req, res) {
 	let username = req.body.username
     let password = req.body.password
     if (username && password) {
-		conn.query('SELECT * FROM users_info WHERE username = ? AND password = ?',
+		conn.query('SELECT * FROM users_info WHERE username = $1 AND password = $2',
              [username, password], 
 		function(error, results, fields) {
 			if (error) throw error;
