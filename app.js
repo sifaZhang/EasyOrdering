@@ -1206,6 +1206,13 @@ app.post('/addQRCode', function (req, res) {
             return res.status(409).json({ error: 'Table number already exists' }); // HTTP 409 Conflict
         }
 
+        //log environment variables for debugging
+        console.log('=== Environment Check ===');
+        console.log('RENDER_EXTERNAL_URL:', process.env.RENDER_EXTERNAL_URL);
+        console.log('BASE_URL:', process.env.BASE_URL);
+        console.log('NODE_ENV:', process.env.NODE_ENV);
+        console.log('=== End ===');
+
         // 3. 定义路径
         const dirPath = path.join(__dirname, 'public/images/QRCodes'); // 建议存到 public 目录
         const fileName = `table${table}.png`;
